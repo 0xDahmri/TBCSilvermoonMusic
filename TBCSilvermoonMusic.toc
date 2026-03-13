@@ -1,7 +1,7 @@
 ## Interface: 120000, 120001
 ## Title: TBCSilvermoonMusic
 ## Notes: Plays the original TBC Silvermoon City music
-## Version: 1.0
+## Version: 1.0.1
 ## Category: Media
 ## SavedVariables: SilvermoonMusicDB
 

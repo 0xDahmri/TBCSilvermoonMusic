@@ -89,7 +89,18 @@ loopFrame:SetScript("OnEvent", function(_, _, soundHandle)
     if soundHandle ~= currentHandle then return end
     if not IsInSilvermoon() then return end
     if not SilvermoonMusicDB or not SilvermoonMusicDB.enabled then return end
-    StartMusic()
+
+    local delay = (SilvermoonMusicDB.trackDelay or 0)
+    if delay > 0 then
+        currentHandle = nil  -- mark as idle during the gap
+        C_Timer.After(delay, function()
+            if not IsInSilvermoon() then return end
+            if not SilvermoonMusicDB or not SilvermoonMusicDB.enabled then return end
+            StartMusic()
+        end)
+    else
+        StartMusic()
+    end
 end)
 
 --Failsafe in case of crashes / disconnects (So audio doesn't cut out)
