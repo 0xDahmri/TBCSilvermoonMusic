@@ -109,8 +109,3 @@ logoutFrame:RegisterEvent("PLAYER_LOGOUT")
 logoutFrame:SetScript("OnEvent", function()
     SetCVar("Sound_EnableMusic", 1)
 end)
-
-SLASH_TBCSILVERMOONMUSIC1 = "/sm"
-SlashCmdList["TBCSILVERMOONMUSIC"] = function()
-    Settings.OpenToCategory("Silvermoon Music")
-end
