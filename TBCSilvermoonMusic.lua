@@ -5,7 +5,8 @@ local TRACK_INTRO = 9801  -- the zone-entry fanfare
 
 local currentHandle = nil
 local isSwitching   = false
-local lastTrack = nil
+local lastTrack     = nil
+local musicMuted    = false
 
 local function IsInSilvermoon()
     return C_Map.GetBestMapForUnit("player") == SILVERMOON_MAP_ID
@@ -36,6 +37,7 @@ end
 
 local function StartMusic()
     SetCVar("Sound_EnableMusic", 0)
+    musicMuted  = true
     isSwitching = true
     local track = ChooseTrack()
     _, currentHandle = PlaySound(track, "Talking Head", true, true)
@@ -47,8 +49,13 @@ local function StopMusic()
         StopSound(currentHandle, 2000)
         C_Timer.After(2.1, function()
             SetCVar("Sound_EnableMusic", 1)
+            musicMuted    = false
             currentHandle = nil
         end)
+    elseif musicMuted then
+        -- No handle (e.g. mid-delay gap between tracks) but music is still muted
+        SetCVar("Sound_EnableMusic", 1)
+        musicMuted = false
     end
 end
 
