@@ -150,6 +150,11 @@ cvarFrame:SetScript("OnEvent", function(_, _, cvarName, value)
         end
         musicMuted = false
         -- Do not call SetMusicCVar — player just set it to 0 themselves
+    elseif userMusicEnabled and not musicMuted
+        and IsInSilvermoon()
+        and SilvermoonMusicDB and SilvermoonMusicDB.enabled then
+        -- player re-enabled music while in Silvermoon; take over from zone music
+        StartMusic()
     end
 end)
 
