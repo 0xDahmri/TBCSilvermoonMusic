@@ -3,12 +3,13 @@ local TRACK_DAY   = 9793
 local TRACK_NIGHT = 9794
 local TRACK_INTRO = 9801  -- the zone-entry fanfare
 
-local currentHandle      = nil
-local isSwitching        = false
-local lastTrack          = nil
-local musicMuted         = false
-local userMusicEnabled   = true  -- player's preference before we overrode Sound_EnableMusic
+local currentHandle       = nil
+local isSwitching         = false
+local lastTrack           = nil
+local musicMuted          = false
+local userMusicEnabled    = true  -- player's preference before we overrode Sound_EnableMusic
 local introOnEnterPending = false
+local suppressCvarWatch   = false
 
 local function IsInSilvermoon()
     return C_Map.GetBestMapForUnit("player") == SILVERMOON_MAP_ID
@@ -41,6 +42,15 @@ local function ChooseTrack()
     return IsNight() and TRACK_NIGHT or TRACK_DAY
 end
 
+-- Wrapper so CVAR_UPDATE ignores changes made by the addon itself.
+-- C_Timer.After(0) defers the flag reset to after the current frame's events
+-- fire, covering both synchronous and asynchronous CVAR_UPDATE dispatch.
+local function SetMusicCVar(value)
+    suppressCvarWatch = true
+    SetCVar("Sound_EnableMusic", value)
+    C_Timer.After(0, function() suppressCvarWatch = false end)
+end
+
 local function StartMusic()
     -- Capture user's preference only on a fresh start (not mid-loop track switches)
     if not musicMuted then
@@ -48,7 +58,7 @@ local function StartMusic()
     end
     if not userMusicEnabled then return end  -- respect player's mute preference
 
-    SetCVar("Sound_EnableMusic", 0)
+    SetMusicCVar(0)
     musicMuted  = true
     isSwitching = true
     local track = ChooseTrack()
@@ -61,14 +71,14 @@ local function StopMusic()
         StopSound(currentHandle, 2000)
         C_Timer.After(2.1, function()
             if musicMuted then
-                SetCVar("Sound_EnableMusic", userMusicEnabled and 1 or 0)
+                SetMusicCVar(userMusicEnabled and 1 or 0)
                 musicMuted = false
             end
             currentHandle = nil
         end)
     elseif musicMuted then
         -- No handle (e.g. mid-delay gap between tracks) but music is still muted
-        SetCVar("Sound_EnableMusic", userMusicEnabled and 1 or 0)
+        SetMusicCVar(userMusicEnabled and 1 or 0)
         musicMuted = false
     end
 end
@@ -125,9 +135,31 @@ loopFrame:SetScript("OnEvent", function(_, _, soundHandle)
     end
 end)
 
---Failsafe in case of crashes / disconnects (So audio doesn't cut out)
+-- React when the player toggles music in Settings while the addon is active.
+-- suppressCvarWatch prevents us from reacting to our own SetMusicCVar calls.
+local cvarFrame = CreateFrame("Frame")
+cvarFrame:RegisterEvent("CVAR_UPDATE")
+cvarFrame:SetScript("OnEvent", function(_, _, cvarName, value)
+    if cvarName ~= "Sound_EnableMusic" or suppressCvarWatch then return end
+    userMusicEnabled = value ~= "0"
+    if not userMusicEnabled and musicMuted then
+        -- player muted music while addon was playing (or in delay gap)
+        if currentHandle then
+            StopSound(currentHandle, 2000)
+            currentHandle = nil
+        end
+        musicMuted = false
+        -- Do not call SetMusicCVar — player just set it to 0 themselves
+    end
+end)
+
+-- Failsafe in case of crashes / disconnects (so audio doesn't cut out).
+-- Only restore the CVar if the addon was the one that changed it; otherwise
+-- we'd overwrite a mute the player intentionally set and corrupt their saved preference.
 local logoutFrame = CreateFrame("Frame")
 logoutFrame:RegisterEvent("PLAYER_LOGOUT")
 logoutFrame:SetScript("OnEvent", function()
-    SetCVar("Sound_EnableMusic", 1)
+    if musicMuted then
+        SetCVar("Sound_EnableMusic", 1)
+    end
 end)
